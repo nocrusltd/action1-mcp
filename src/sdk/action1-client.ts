@@ -158,6 +158,23 @@ export class Action1Client {
     return this.token.accessToken;
   }
 
+  /** The configured default organization id, if any. */
+  get defaultOrgId(): string | undefined {
+    return this.opts.defaultOrgId;
+  }
+
+  /**
+   * Send a request for a catalogued operation (src/utils/operations.ts builds
+   * and validates the path). JSON responses are parsed; anything else (CSV
+   * exports, empty 204 bodies) comes back as text.
+   */
+  async send(method: string, path: string, body?: string): Promise<unknown> {
+    return this.request(path, {
+      method,
+      ...(body !== undefined ? { body, headers: { "Content-Type": "application/json" } } : {}),
+    });
+  }
+
   /** Resolve the org id from the argument or the configured default. */
   private requireOrg(orgId: string | undefined): string {
     const resolved = orgId ?? this.opts.defaultOrgId;
@@ -193,7 +210,17 @@ export class Action1Client {
       const text = await res.text().catch(() => "");
       throw new Error(`Action1 ${init.method ?? "GET"} ${path} failed: ${res.status} ${text}`);
     }
-    return (await res.json()) as T;
+    const text = await res.text();
+    if (!text) return null as T;
+    const type = res.headers.get("Content-Type") ?? "";
+    if (type.includes("json") || /^\s*[[{]/.test(text)) {
+      try {
+        return JSON.parse(text) as T;
+      } catch {
+        // Fall through and return the raw text.
+      }
+    }
+    return text as T;
   }
 
   // --- v1 read-only surface ---

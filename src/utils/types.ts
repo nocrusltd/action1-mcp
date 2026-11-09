@@ -5,7 +5,8 @@ export type DomainName =
   | "organizations"
   | "policies"
   | "updates"
-  | "automations";
+  | "automations"
+  | "api";
 
 export interface DomainHandler {
   tools: Tool[];
@@ -24,6 +25,7 @@ export function isDomainName(s: string): s is DomainName {
     s === "organizations" ||
     s === "policies" ||
     s === "updates" ||
-    s === "automations"
+    s === "automations" ||
+    s === "api"
   );
 }

@@ -40,6 +40,11 @@ export async function getDomainHandler(domain: DomainName): Promise<DomainHandle
       handler = automationsHandler;
       break;
     }
+    case "api": {
+      const { apiHandler } = await import("./api.js");
+      handler = apiHandler;
+      break;
+    }
     default:
       throw new Error(`Unknown domain: ${domain satisfies never}`);
   }
@@ -49,7 +54,7 @@ export async function getDomainHandler(domain: DomainName): Promise<DomainHandle
 }
 
 export function getAvailableDomains(): DomainName[] {
-  return ["organizations", "endpoints", "policies", "updates", "automations"];
+  return ["organizations", "endpoints", "policies", "updates", "automations", "api"];
 }
 
 export function clearDomainCache(): void {

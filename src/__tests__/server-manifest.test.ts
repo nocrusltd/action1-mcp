@@ -50,6 +50,7 @@ describe("server.json credential env vars", () => {
     expect(declared.sort()).toEqual([
       "ACTION1_API_KEY",
       "ACTION1_DEFAULT_ORG_ID",
+      "ACTION1_ENABLE_ADMIN",
       "ACTION1_ENABLE_WRITES",
       "ACTION1_REGION",
       "ACTION1_SECRET",
@@ -83,6 +84,11 @@ describe("server.json credential env vars", () => {
   it("keeps write tools opt-in: ACTION1_ENABLE_WRITES is optional and defaults to false", () => {
     expect(byName("ACTION1_ENABLE_WRITES")?.isRequired).toBeFalsy();
     expect(byName("ACTION1_ENABLE_WRITES")?.default).toBe("false");
+  });
+
+  it("keeps admin operations opt-in: ACTION1_ENABLE_ADMIN is optional and defaults to false", () => {
+    expect(byName("ACTION1_ENABLE_ADMIN")?.isRequired).toBeFalsy();
+    expect(byName("ACTION1_ENABLE_ADMIN")?.default).toBe("false");
   });
 
   it("offers the four real regions, defaulting to NorthAmerica", () => {

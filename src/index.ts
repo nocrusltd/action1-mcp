@@ -13,7 +13,9 @@
  * Credentials (stdio mode):
  *   ACTION1_API_KEY, ACTION1_SECRET, ACTION1_REGION (default NorthAmerica),
  *   ACTION1_DEFAULT_ORG_ID (optional)
- *   ACTION1_ENABLE_WRITES=true (optional) — enables run-script / reboot / deploy-update tools
+ *   ACTION1_ENABLE_WRITES=true (optional) — enables tools that change endpoints and configuration
+ *   ACTION1_ENABLE_ADMIN=true (optional, needs writes) — enables admin API operations
+ *     (users, roles, organizations, enterprise, subscription, settings, endpoint deletion)
  *
  * Credentials (gateway mode, AUTH_MODE=gateway): from request headers
  *   X-Action1-API-Key, X-Action1-Secret, X-Action1-Region, X-Action1-Default-Org-Id
@@ -60,7 +62,8 @@ const navigateTool: Tool = {
         description:
           "endpoints (device inventory), organizations (multi-tenant MSP), " +
           "policies (automation visibility), updates (missing patches), " +
-          "automations (run scripts, reboot, deploy updates, read results).",
+          "automations (run scripts, reboot, deploy updates, read results), " +
+          "api (every Action1 API operation: search, per-endpoint patches, software, CVEs, groups, generic read/write).",
       },
     },
     required: ["domain"],

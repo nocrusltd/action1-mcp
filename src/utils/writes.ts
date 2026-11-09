@@ -13,6 +13,16 @@ export function writesEnabled(): boolean {
   return raw === "true" || raw === "1";
 }
 
+/**
+ * Admin operations (users, roles, organizations, enterprise, subscription,
+ * advanced settings, agent deployment, deleting endpoints...) need
+ * ACTION1_ENABLE_ADMIN as well as ACTION1_ENABLE_WRITES.
+ */
+export function adminEnabled(): boolean {
+  const raw = cleanCredential(process.env.ACTION1_ENABLE_ADMIN)?.toLowerCase();
+  return writesEnabled() && (raw === "true" || raw === "1");
+}
+
 export const WRITES_DISABLED_MESSAGE =
   "Action1 write tools are disabled. Set ACTION1_ENABLE_WRITES=true to enable " +
   "action1_run_script, action1_reboot_endpoints and action1_deploy_updates.";
