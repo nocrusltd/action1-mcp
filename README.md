@@ -81,7 +81,7 @@ API surface also maps to [PSAction1](https://github.com/Action1Corp/PSAction1) (
 
 ### Claude Desktop (MCPB)
 
-Install via the MCPB bundle from the [latest release](https://github.com/WYRE-AI/action1-mcp/releases).
+The MCPB bundle on the [upstream releases page](https://github.com/WYRE-AI/action1-mcp/releases) is the read-only upstream build: it does **not** include the full-API catalogue or the write/admin tools in this fork. To get them in Claude Desktop, build a bundle from this repository with `npm ci && npm run build && npm run pack:mcpb`.
 
 Required credentials (created in Action1 → Settings → API Credentials, **non-recoverable on creation — copy immediately**):
 - API Key (Client ID)
@@ -91,15 +91,22 @@ Required credentials (created in Action1 → Settings → API Credentials, **non
 
 ### Stdio (direct)
 
+Build this fork, then run it:
+
 ```bash
+git clone https://github.com/nocrusltd/action1-mcp.git && cd action1-mcp
+npm ci --ignore-scripts && npm run build
+
 ACTION1_API_KEY=... \
 ACTION1_SECRET=... \
 ACTION1_REGION=NorthAmerica \
 ACTION1_DEFAULT_ORG_ID=org-... \
 ACTION1_ENABLE_WRITES=false \
 ACTION1_ENABLE_ADMIN=false \
-npx -y github:WYRE-AI/action1-mcp
+node dist/index.js
 ```
+
+`npx -y github:WYRE-AI/action1-mcp` runs the read-only upstream build, without these tools.
 
 ### HTTP
 

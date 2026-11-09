@@ -46,7 +46,7 @@
         },
         {
           "name": "ACTION1_ENABLE_WRITES",
-          "description": "Set to 'true' to enable tools that change endpoints: action1_run_script, action1_reboot_endpoints and action1_deploy_updates. Off by default, so the server is read-only.",
+          "description": "Set to 'true' to enable every tool and API operation that changes endpoints or configuration, for example action1_run_script, action1_reboot_endpoints, action1_deploy_updates, action1_set_update_approval, action1_stop_automation and action1_api_write (groups, scripts, schedules, approvals, software repository, report definitions, CVE remediations). Off by default, so the server is read-only.",
           "isRequired": false,
           "default": "false",
           "format": "string",

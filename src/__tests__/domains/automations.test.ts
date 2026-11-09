@@ -186,6 +186,24 @@ describe("automations domain", () => {
       expect(JSON.parse(res.content[0].text)).toMatchObject({ instance_id: "inst-1", targets: 2 });
     });
 
+    it.each([42, "", "  "])("rejects an invalid reboot name %j before calling the API", async (bad) => {
+      setWrites("true");
+      const createAutomationInstance = vi.fn();
+      vi.spyOn(clientModule, "getClient").mockReturnValue({ createAutomationInstance } as never);
+      await expect(
+        automationsHandler.handle("action1_reboot_endpoints", { name: bad, endpoint_ids: ["e1"] }),
+      ).rejects.toThrow(/name/);
+      expect(createAutomationInstance).not.toHaveBeenCalled();
+    });
+
+    it("defaults the reboot name to Reboot", async () => {
+      setWrites("true");
+      const createAutomationInstance = vi.fn().mockResolvedValue({ id: "i" });
+      vi.spyOn(clientModule, "getClient").mockReturnValue({ createAutomationInstance } as never);
+      await automationsHandler.handle("action1_reboot_endpoints", { endpoint_ids: ["e1"] });
+      expect(createAutomationInstance.mock.calls[0][1].name).toBe("Reboot");
+    });
+
     it("rejects a bad retry_minutes before calling the API", async () => {
       setWrites("true");
       const createAutomationInstance = vi.fn();

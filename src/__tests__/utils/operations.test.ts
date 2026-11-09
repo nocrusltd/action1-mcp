@@ -175,3 +175,47 @@ describe("callOperation gating (no request is sent when refused)", () => {
     expect(await getCatalogue()).toBe(await getCatalogue());
   });
 });
+
+describe("dot-segment path values", () => {
+  it.each([".", ".."])("rejects %j so fetch cannot collapse the path", (v) => {
+    const scriptDelete = API_OPERATIONS.find((o) => o.id === "scripts_orgId_scriptId_delete")!;
+    expect(() => buildRequest(scriptDelete, { path_params: { scriptId: v } }, "o")).toThrow(/cannot be "\." or "\.\."/);
+  });
+
+  it("still allows ids that merely contain dots", () => {
+    const scriptDelete = API_OPERATIONS.find((o) => o.id === "scripts_orgId_scriptId_delete")!;
+    expect(buildRequest(scriptDelete, { path_params: { scriptId: "a..b" } }, "o").path).toBe("/api/3.0/scripts/all/a..b");
+  });
+});
+
+describe("ALL-endpoints confirmation on generic calls", () => {
+  let send: ReturnType<typeof vi.fn>;
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    send = vi.fn().mockResolvedValue({ ok: true });
+    vi.spyOn(clientModule, "getClient").mockReturnValue({ send, defaultOrgId: "org-1" } as never);
+    env("true", undefined);
+  });
+  afterEach(() => env(saved.w, saved.a));
+
+  const allBody = { name: "x", retry_minutes: "1", endpoints: [{ id: "ALL", type: "EndpointGroup" }], actions: [] };
+
+  it.each(["policies_instances_orgId_post", "policies_schedules_orgId_post"])(
+    "refuses %s targeting ALL without confirmation",
+    async (id) => {
+      await expect(callOperation(id, { body: allBody })).rejects.toThrow(/confirm_all_endpoints/);
+      await expect(
+        callOperation(id, { body: { ...allBody, endpoints: [{ id: "all", type: "EndpointGroup" }] } }),
+      ).rejects.toThrow(/confirm_all_endpoints/);
+      expect(send).not.toHaveBeenCalled();
+    },
+  );
+
+  it("sends when confirmed, or when targeting specific endpoints", async () => {
+    await callOperation("policies_instances_orgId_post", { body: allBody, confirm_all_endpoints: true });
+    await callOperation("policies_instances_orgId_post", {
+      body: { ...allBody, endpoints: [{ id: "e1", type: "Endpoint" }] },
+    });
+    expect(send).toHaveBeenCalledTimes(2);
+  });
+});

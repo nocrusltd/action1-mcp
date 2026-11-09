@@ -24,5 +24,7 @@ export function adminEnabled(): boolean {
 }
 
 export const WRITES_DISABLED_MESSAGE =
-  "Action1 write tools are disabled. Set ACTION1_ENABLE_WRITES=true to enable " +
-  "action1_run_script, action1_reboot_endpoints and action1_deploy_updates.";
+  "Action1 write tools are disabled. Set ACTION1_ENABLE_WRITES=true to enable the tools and API " +
+  "operations that change endpoints or configuration (for example action1_run_script, " +
+  "action1_reboot_endpoints, action1_deploy_updates, action1_set_update_approval, " +
+  "action1_stop_automation and action1_api_write).";

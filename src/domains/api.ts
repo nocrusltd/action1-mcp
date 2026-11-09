@@ -161,7 +161,14 @@ const writeTools: Tool[] = [
     annotations: { title: "Call an Action1 write operation", ...writeAnn },
     inputSchema: {
       type: "object",
-      properties: { ...callProps, body: { description: "JSON request body, per the operation's schema." } },
+      properties: {
+        ...callProps,
+        body: { description: "JSON request body, per the operation's schema." },
+        confirm_all_endpoints: {
+          type: "boolean",
+          description: 'Must be true when the body targets the "ALL" endpoint group (every endpoint in the organization).',
+        },
+      },
       required: ["operation_id"],
     },
   },
@@ -235,6 +242,7 @@ function callArgs(args: Record<string, unknown>): CallArgs {
     path_params: args.path_params as Record<string, unknown> | undefined,
     query: args.query as Record<string, unknown> | undefined,
     body: args.body,
+    confirm_all_endpoints: args.confirm_all_endpoints === true,
   };
 }
 

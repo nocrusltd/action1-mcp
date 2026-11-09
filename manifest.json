@@ -69,7 +69,7 @@
     "action1_enable_admin": {
       "type": "boolean",
       "title": "Enable admin operations",
-      "description": "Also allow users, roles, organizations, enterprise, subscription, settings and endpoint deletion. Needs write tools enabled. Off by default.",
+      "description": "Also allow users, roles, organizations, enterprise, subscription, advanced settings, data sources, agent deployment, deleting or moving endpoints, and remote sessions. Needs write tools enabled. Off by default.",
       "sensitive": false,
       "required": false,
       "default": false

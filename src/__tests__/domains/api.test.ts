@@ -109,6 +109,21 @@ describe("api domain", () => {
       expect(calls).toEqual([{ method: "POST", url: `${EU}/endpoints/groups/org-1`, body: '{"name":"Sage PCs"}' }]);
     });
 
+    it("passes confirm_all_endpoints through to the ALL guard", async () => {
+      env("true");
+      const body = { name: "n", retry_minutes: "1", endpoints: [{ id: "ALL", type: "EndpointGroup" }], actions: [] };
+      await expect(
+        apiHandler.handle("action1_api_write", { operation_id: "policies_instances_orgId_post", body }),
+      ).rejects.toThrow(/confirm_all_endpoints/);
+      expect(calls).toHaveLength(0);
+      await apiHandler.handle("action1_api_write", {
+        operation_id: "policies_instances_orgId_post",
+        body,
+        confirm_all_endpoints: true,
+      });
+      expect(calls).toHaveLength(1);
+    });
+
     it("rejects non-object path_params / query", async () => {
       await expect(
         apiHandler.handle("action1_api_read", { operation_id: "audit_events_get", query: "limit=3" }),

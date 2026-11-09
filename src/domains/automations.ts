@@ -384,7 +384,9 @@ export const automationsHandler: DomainHandler = {
       const instance = await client.createAutomationInstance(
         { orgId: args.organization_id as string | undefined },
         {
-          name: (args.name as string | undefined) ?? "Reboot",
+          name: name === "action1_reboot_endpoints"
+            ? (optionalString(args.name, "name") ?? "Reboot")
+            : requireString(args, "name"),
           retry_minutes: retryMinutes(args),
           endpoints,
           actions: [action],
