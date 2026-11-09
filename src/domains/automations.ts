@@ -169,6 +169,7 @@ const readTools: Tool[] = [
 
 const WRITE_TOOL_NAMES = new Set(writeTools.map((t) => t.name));
 
+/** Optional array of non-empty strings, or [] when omitted. */
 function stringArray(value: unknown, field: string): string[] {
   if (value === undefined) return [];
   if (!Array.isArray(value) || value.some((v) => typeof v !== "string" || !v.trim())) {
@@ -196,21 +197,35 @@ export function buildTargets(args: Record<string, unknown>): AutomationTarget[] 
   ];
 }
 
+/** Required non-empty string argument. */
 function requireString(args: Record<string, unknown>, field: string): string {
   const v = args[field];
   if (typeof v !== "string" || !v.trim()) throw new Error(`${field} is required`);
   return v;
 }
 
-function retryMinutes(args: Record<string, unknown>): string {
-  const v = args.retry_minutes;
-  if (v === undefined) return "1440";
+/** Optional positive integer, or undefined when omitted. */
+function optionalPositiveInt(v: unknown, field: string): number | undefined {
+  if (v === undefined) return undefined;
   if (typeof v !== "number" || !Number.isInteger(v) || v < 1) {
-    throw new Error("retry_minutes must be a positive integer");
+    throw new Error(`${field} must be a positive integer`);
   }
-  return String(v);
+  return v;
 }
 
+/** Optional non-empty string, or undefined when omitted. */
+function optionalString(v: unknown, field: string): string | undefined {
+  if (v === undefined) return undefined;
+  if (typeof v !== "string" || !v.trim()) throw new Error(`${field} must be a non-empty string`);
+  return v;
+}
+
+/** retry_minutes as the string Action1 expects, defaulting to 24h. */
+function retryMinutes(args: Record<string, unknown>): string {
+  return String(optionalPositiveInt(args.retry_minutes, "retry_minutes") ?? 1440);
+}
+
+/** Action1 reboot_options block. No reboot unless `reboot` is true. */
 function rebootOptions(reboot: boolean, message?: string, timeout?: number, showMessage = true) {
   if (!reboot) return { auto_reboot: "no" };
   return {
@@ -252,8 +267,8 @@ export function buildAction(name: string, args: Record<string, unknown>): Automa
           display_summary: "Reboot",
           reboot_options: rebootOptions(
             true,
-            args.message_text as string | undefined,
-            args.timeout_minutes as number | undefined,
+            optionalString(args.message_text, "message_text"),
+            optionalPositiveInt(args.timeout_minutes, "timeout_minutes"),
             args.show_message !== false,
           ),
         },
@@ -295,6 +310,7 @@ function outputLines(description: string | undefined): string[] {
     .filter((l) => l.length > 0);
 }
 
+/** Instance status plus one row per endpoint, with step output unless include_output is false. */
 async function getResults(args: Record<string, unknown>) {
   const client = getClient();
   const instanceId = requireString(args, "instance_id");
@@ -316,13 +332,18 @@ async function getResults(args: Record<string, unknown>) {
       summary: r.description,
     };
     if (includeOutput) {
-      const details = await client.getAutomationEndpointDetails(instanceId, r.id, { orgId });
-      row.steps = details.items.map((d) => ({
-        time: d.time,
-        status: d.status,
-        action: d.action_name,
-        output: outputLines(d.description),
-      }));
+      // One endpoint's log failing to load should not hide everyone else's results.
+      try {
+        const details = await client.getAutomationEndpointDetails(instanceId, r.id, { orgId });
+        row.steps = details.items.map((d) => ({
+          time: d.time,
+          status: d.status,
+          action: d.action_name,
+          output: outputLines(d.description),
+        }));
+      } catch (e) {
+        row.output_error = e instanceof Error ? e.message : String(e);
+      }
     }
     rows.push(row);
   }
@@ -340,6 +361,8 @@ async function getResults(args: Record<string, unknown>) {
     percent_completed: instance.percent_completed,
     start_time: instance.start_time,
     counts,
+    // Only the first 500 endpoints are fetched; counts cover those rows only.
+    truncated: Boolean(page.next_page),
     endpoints: rows,
   };
 }

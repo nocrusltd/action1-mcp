@@ -66,6 +66,11 @@ export type Action1Region = keyof typeof REGION_HOSTS;
 
 const MAX_RATE_LIMIT_RETRIES = 4;
 
+// Total time to spend waiting out 429s. Writes get a short budget: if an MCP
+// client times out while we wait, a late retry could still start the job and a
+// re-issued tool call would then run it twice.
+const RATE_LIMIT_BUDGET_MS = { read: 60_000, write: 20_000 };
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Wait time for a 429: Action1's details.retry_after, then Retry-After, else 1s. Capped at 30s. */
@@ -153,6 +158,7 @@ export class Action1Client {
     return this.token.accessToken;
   }
 
+  /** Resolve the org id from the argument or the configured default. */
   private requireOrg(orgId: string | undefined): string {
     const resolved = orgId ?? this.opts.defaultOrgId;
     if (!resolved) throw new Error("organization_id is required (no defaultOrgId configured)");
@@ -161,6 +167,9 @@ export class Action1Client {
 
   private async request<T>(path: string, init: RequestInit = {}): Promise<T> {
     let res: Response;
+    let waited = 0;
+    const method = (init.method ?? "GET").toUpperCase();
+    const budget = method === "GET" ? RATE_LIMIT_BUDGET_MS.read : RATE_LIMIT_BUDGET_MS.write;
     for (let attempt = 0; ; attempt++) {
       const token = await this.ensureToken();
       res = await fetch(`${this.baseUrl}${path}`, {
@@ -175,7 +184,10 @@ export class Action1Client {
       // details.retry_after (seconds). Back off and retry a few times. POSTs are
       // safe to retry here because a 429 means the request was not processed.
       if (res.status !== 429 || attempt >= MAX_RATE_LIMIT_RETRIES) break;
-      await sleep(await retryAfterMs(res));
+      const wait = await retryAfterMs(res.clone());
+      if (waited + wait > budget) break;
+      waited += wait;
+      await sleep(wait);
     }
     if (!res.ok) {
       const text = await res.text().catch(() => "");

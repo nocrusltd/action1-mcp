@@ -97,7 +97,7 @@ describe("Action1Client rate-limit handling", () => {
     vi.useRealTimers();
   });
 
-  function stubWith429s(count: number): { resourceCalls: () => number } {
+  function stubWith429s(count: number, retryAfter = 1): { resourceCalls: () => number } {
     let n = 0;
     globalThis.fetch = vi.fn(async (input: string | URL) => {
       const url = typeof input === "string" ? input : input.toString();
@@ -109,7 +109,7 @@ describe("Action1Client rate-limit handling", () => {
       }
       n++;
       if (n <= count) {
-        return new Response(JSON.stringify({ status: 429, details: { retry_after: 1 } }), { status: 429 });
+        return new Response(JSON.stringify({ status: 429, details: { retry_after: retryAfter } }), { status: 429 });
       }
       return new Response(JSON.stringify({ id: "ok" }), { status: 200 });
     }) as typeof fetch;
@@ -133,5 +133,38 @@ describe("Action1Client rate-limit handling", () => {
     await vi.runAllTimersAsync();
     await assertion;
     expect(stub.resourceCalls()).toBe(5);
+  });
+
+  it("caps total 429 waiting for writes at 20s so a timed-out call is not run later", async () => {
+    vi.useFakeTimers();
+    const stub = stubWith429s(100, 15);
+    const p = client().createAutomationInstance(
+      { orgId: "o" },
+      { name: "n", retry_minutes: "1", endpoints: [], actions: [] },
+    );
+    const assertion = expect(p).rejects.toThrow(/429/);
+    await vi.runAllTimersAsync();
+    await assertion;
+    // 15s wait fits the budget; a second 15s would reach 30s, so it stops.
+    expect(stub.resourceCalls()).toBe(2);
+  });
+
+  it("allows reads a longer 60s budget", async () => {
+    vi.useFakeTimers();
+    const stub = stubWith429s(100, 15);
+    const p = client().getAutomationInstance("i", { orgId: "o" });
+    const assertion = expect(p).rejects.toThrow(/429/);
+    await vi.runAllTimersAsync();
+    await assertion;
+    expect(stub.resourceCalls()).toBe(5);
+  });
+
+  it("keeps Action1's error body in the final 429 message", async () => {
+    vi.useFakeTimers();
+    stubWith429s(100);
+    const p = client().getAutomationInstance("i", { orgId: "o" });
+    const assertion = expect(p).rejects.toThrow(/retry_after/);
+    await vi.runAllTimersAsync();
+    await assertion;
   });
 });

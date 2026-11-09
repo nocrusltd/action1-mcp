@@ -121,6 +121,22 @@ describe("automations domain", () => {
       expect(a.params.reboot_options).toMatchObject({ auto_reboot: "yes", show_message: "yes", timeout: 240 });
     });
 
+    it.each([
+      [{ timeout_minutes: 0 }, /timeout_minutes/],
+      [{ timeout_minutes: -5 }, /timeout_minutes/],
+      [{ timeout_minutes: 1.5 }, /timeout_minutes/],
+      [{ timeout_minutes: "soon" }, /timeout_minutes/],
+      [{ message_text: 42 }, /message_text/],
+      [{ message_text: "  " }, /message_text/],
+    ])("rejects invalid reboot option %j", (args, err) => {
+      expect(() => buildAction("action1_reboot_endpoints", args)).toThrow(err);
+    });
+
+    it("passes valid reboot options through", () => {
+      const a = buildAction("action1_reboot_endpoints", { timeout_minutes: 15, message_text: "Rebooting" });
+      expect(a.params.reboot_options).toMatchObject({ timeout: 15, message_text: "Rebooting" });
+    });
+
     it("builds a Specified deploy_update action from package/version pairs", () => {
       const a = buildAction("action1_deploy_updates", {
         name: "Chrome",
@@ -209,6 +225,27 @@ describe("automations domain", () => {
       expect(body.counts).toEqual({ Success: 1, Error: 1 });
       expect(body.endpoints[0].steps[0].output).toEqual(["OK: e1", "DONE"]);
       expect(client.getAutomationEndpointDetails).toHaveBeenCalledTimes(2);
+    });
+
+    it("keeps other rows when one endpoint's log fails, and flags truncation", async () => {
+      const client = {
+        getAutomationInstance: vi.fn().mockResolvedValue({ id: "i" }),
+        listAutomationEndpointResults: vi.fn().mockResolvedValue({
+          items: [{ id: "e1", status: "Success" }, { id: "e2", status: "Success" }],
+          next_page: "https://example/next",
+        }),
+        getAutomationEndpointDetails: vi.fn().mockImplementation(async (_i: string, eid: string) => {
+          if (eid === "e1") throw new Error("Action1 GET ... failed: 404");
+          return { items: [{ id: "d", description: "fine" }] };
+        }),
+      };
+      vi.spyOn(clientModule, "getClient").mockReturnValue(client as never);
+      const body = JSON.parse(
+        (await automationsHandler.handle("action1_get_automation_results", { instance_id: "i" })).content[0].text,
+      );
+      expect(body.truncated).toBe(true);
+      expect(body.endpoints[0].output_error).toMatch(/404/);
+      expect(body.endpoints[1].steps[0].output).toEqual(["fine"]);
     });
 
     it("skips the per-endpoint calls when include_output is false", async () => {
