@@ -1,0 +1,31 @@
+/**
+ * Write-tool gate.
+ *
+ * Tools that change endpoints (run a script, reboot, deploy updates) are off
+ * unless ACTION1_ENABLE_WRITES is "true" or "1". When off they are not listed
+ * and calling them by name is refused, so a read-only install stays read-only.
+ */
+
+import { cleanCredential } from "./client.js";
+
+/** True when ACTION1_ENABLE_WRITES is "true" or "1". */
+export function writesEnabled(): boolean {
+  const raw = cleanCredential(process.env.ACTION1_ENABLE_WRITES)?.toLowerCase();
+  return raw === "true" || raw === "1";
+}
+
+/**
+ * Admin operations (users, roles, organizations, enterprise, subscription,
+ * advanced settings, agent deployment, deleting endpoints...) need
+ * ACTION1_ENABLE_ADMIN as well as ACTION1_ENABLE_WRITES.
+ */
+export function adminEnabled(): boolean {
+  const raw = cleanCredential(process.env.ACTION1_ENABLE_ADMIN)?.toLowerCase();
+  return writesEnabled() && (raw === "true" || raw === "1");
+}
+
+export const WRITES_DISABLED_MESSAGE =
+  "Action1 write tools are disabled. Set ACTION1_ENABLE_WRITES=true to enable the tools and API " +
+  "operations that change endpoints or configuration (for example action1_run_script, " +
+  "action1_reboot_endpoints, action1_deploy_updates, action1_set_update_approval, " +
+  "action1_stop_automation and action1_api_write).";

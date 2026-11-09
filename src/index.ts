@@ -13,6 +13,9 @@
  * Credentials (stdio mode):
  *   ACTION1_API_KEY, ACTION1_SECRET, ACTION1_REGION (default NorthAmerica),
  *   ACTION1_DEFAULT_ORG_ID (optional)
+ *   ACTION1_ENABLE_WRITES=true (optional) — enables tools that change endpoints and configuration
+ *   ACTION1_ENABLE_ADMIN=true (optional, needs writes) — enables admin API operations
+ *     (users, roles, organizations, enterprise, subscription, settings, endpoint deletion)
  *
  * Credentials (gateway mode, AUTH_MODE=gateway): from request headers
  *   X-Action1-API-Key, X-Action1-Secret, X-Action1-Region, X-Action1-Default-Org-Id
@@ -58,13 +61,16 @@ const navigateTool: Tool = {
         enum: getAvailableDomains(),
         description:
           "endpoints (device inventory), organizations (multi-tenant MSP), " +
-          "policies (automation visibility), updates (missing patches).",
+          "policies (automation visibility), updates (missing patches), " +
+          "automations (run scripts, reboot, deploy updates, read results), " +
+          "api (every Action1 API operation: search, per-endpoint patches, software, CVEs, groups, generic read/write).",
       },
     },
     required: ["domain"],
   },
 };
 
+/** Every tool across all domains, plus action1_navigate. */
 async function listAllTools(): Promise<Tool[]> {
   const tools: Tool[] = [navigateTool];
   for (const d of getAvailableDomains()) {
@@ -74,6 +80,7 @@ async function listAllTools(): Promise<Tool[]> {
   return tools;
 }
 
+/** Route a tool call to the domain that owns it. */
 async function dispatchTool(
   name: string,
   args: Record<string, unknown>,
@@ -112,6 +119,7 @@ async function dispatchTool(
   };
 }
 
+/** Create the MCP server with tool and resource handlers. */
 function buildServer(): Server {
   const server = new Server(
     { name: "action1-mcp", version: "0.1.0" },
@@ -168,16 +176,19 @@ const KNOWN_PLACEHOLDER_SECRETS = new Set([
   "s2s-secret",
 ]);
 
+/** Log why startup is refused and exit with status 1. */
 function refuseStart(message: string): never {
   console.error(message);
   process.exit(1);
 }
 
+/** True for 127.0.0.1, ::1 and localhost. */
 function isLoopbackHost(host: string): boolean {
   const normalized = host.trim().toLowerCase().replace(/^\[(.+)\]$/, "$1");
   return normalized === "127.0.0.1" || normalized === "localhost" || normalized === "::1";
 }
 
+/** A header's value when it is a single non-empty string; repeated or empty headers give undefined. */
 function headerValue(value: string | string[] | undefined): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined;
 }
@@ -228,6 +239,7 @@ function resolveBindHost(insecureDev: boolean): string {
   );
 }
 
+/** HTTP port from MCP_HTTP_PORT, then PORT, defaulting to 8080; refuses to start on an invalid value. */
 function resolveHttpPort(): number {
   const raw = (process.env.MCP_HTTP_PORT || process.env.PORT || "8080").trim();
   const port = Number(raw);
@@ -237,6 +249,7 @@ function resolveHttpPort(): number {
   return port;
 }
 
+/** Action1 credentials from gateway request headers, or null if incomplete. */
 function credentialsFromHeaders(req: IncomingMessage): Action1Credentials | null {
   const apiKey = headerValue(req.headers["x-action1-api-key"]);
   const secret = headerValue(req.headers["x-action1-secret"]);
@@ -254,6 +267,7 @@ function credentialsFromHeaders(req: IncomingMessage): Action1Credentials | null
   };
 }
 
+/** Start the streamable HTTP transport. */
 export async function startHttp(): Promise<HttpServer> {
   const { secret: s2sSecret, insecureDev } = resolveHttpS2s();
   const host = resolveBindHost(insecureDev);
@@ -378,6 +392,7 @@ export async function startHttp(): Promise<HttpServer> {
   return httpServer;
 }
 
+/** Start the stdio transport. */
 async function startStdio(): Promise<void> {
   const server = buildServer();
   const transport = new StdioServerTransport();
@@ -385,6 +400,7 @@ async function startStdio(): Promise<void> {
   console.error("action1-mcp stdio ready");
 }
 
+/** Entry point: pick the transport from MCP_TRANSPORT. */
 async function main(): Promise<void> {
   const mode = process.env.MCP_TRANSPORT ?? "stdio";
   if (mode === "http") {

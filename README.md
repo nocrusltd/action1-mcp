@@ -5,37 +5,83 @@
 
 MCP server for [Action1](https://www.action1.com/) — endpoint inventory, patch visibility, and policy automation via the [Model Context Protocol](https://modelcontextprotocol.io).
 
-Read-only in v1. Deploy / automation surface is intentionally separated to a later release for blast-radius reasons (a bad policy push can brick endpoint fleets).
+Covers the whole Action1 REST API (141 operations), read-only by default. Changes are opt-in in two tiers: `ACTION1_ENABLE_WRITES=true` for everyday writes, plus `ACTION1_ENABLE_ADMIN=true` for account administration. A bad push can break a whole fleet, so both are off unless you turn them on.
+
+## Risk tiers
+
+Every API operation has a tier, assigned in one place (`scripts/gen-api-catalogue.mjs`):
+
+| Tier | Needs | Covers |
+|---|---|---|
+| read | nothing | every GET (73 operations) |
+| write | `ACTION1_ENABLE_WRITES=true` | endpoints, groups, scripts, automations and schedules, update approvals, software repository, custom reports, CVE remediations (36) |
+| admin | writes **and** `ACTION1_ENABLE_ADMIN=true` | users, roles, organizations, enterprise, subscription, advanced settings, data sources, agent deployment, deleting or moving endpoints, remote sessions (27) |
+| blocked | never | closing the enterprise account (and revoking that), OAuth token minting, binary package upload (5) |
+
+Write and admin tools are hidden from the tool list when their tier is off, and refused if called by name.
 
 ## Tools
 
+### Read (always available)
+
 | Tool | Description |
 |---|---|
-| `action1_navigate` | Discover available tools by domain (organizations / endpoints / policies / updates) |
+| `action1_navigate` | Discover tools by domain |
 | `action1_list_organizations` | List Action1 tenants accessible to the configured credentials |
-| `action1_list_endpoints` | List managed devices in an organization |
-| `action1_get_endpoint` | Get a single endpoint by id |
-| `action1_list_missing_updates` | List missing OS/application patches across endpoints — Action1's headline value-prop |
-| `action1_list_policies` | List automation / policy / remediation rules |
+| `action1_list_endpoints` / `action1_get_endpoint` | Managed devices |
+| `action1_list_missing_updates` | Missing patches across an organization |
+| `action1_list_endpoint_missing_updates` | Missing patches on one endpoint |
+| `action1_list_installed_software` | Installed software, org-wide or per endpoint |
+| `action1_list_vulnerabilities` | CVEs detected, optionally per endpoint |
+| `action1_list_endpoint_groups` | Endpoint groups |
+| `action1_list_policies` | Automation instances |
+| `action1_search` | Text search across an organization |
+| `action1_get_automation_results` | Status of an automation run, one row per endpoint, including script output |
+| `action1_list_api_operations` | Browse every API operation with its tier and whether it is enabled |
+| `action1_describe_api_operation` | Parameters and request-body schema for one operation |
+| `action1_api_read` | Call any read operation (reports, audit log, scripts, schedules, software repository, users, settings, ...) |
 
-API surface maps to [PSAction1](https://github.com/Action1Corp/PSAction1) (Action1's MIT-licensed PowerShell module). When the v1 surface earns its keep, write tools (deploy, requery, package upload) come in v2 behind separate review.
+### Write (`ACTION1_ENABLE_WRITES=true`)
+
+| Tool | Description |
+|---|---|
+| `action1_run_script` | Run an inline PowerShell / Command / Bash script now (SYSTEM on Windows). No reboot unless `reboot_after: true` |
+| `action1_reboot_endpoints` | Reboot endpoints, warning the logged-in user first by default (240 min timeout) |
+| `action1_deploy_updates` | Deploy specific updates. No reboot unless `reboot_after: true` |
+| `action1_set_update_approval` | Approve, decline or reset updates |
+| `action1_stop_automation` | Stop a running automation |
+| `action1_api_write` | Call any write operation, or any admin operation when `ACTION1_ENABLE_ADMIN=true` |
+
+Run-now tools return an `instance_id`; pass it to `action1_get_automation_results`. Offline endpoints run the job when they reconnect, within `retry_minutes` (default 1440). Targeting the `ALL` endpoint group also needs `confirm_all_endpoints: true`.
 
 ### Interactive Device Card (MCP Apps)
 
 `action1_get_endpoint` renders as an interactive device-summary card in MCP
 Apps hosts (Claude Desktop/web) — status, OS, user, IP, agent version,
 reboot-required, and missing-update counts at a glance; plain-JSON behavior is
-unchanged in other hosts. The card is read-only (matching the v1 tool surface),
+unchanged in other hosts. The card is read-only,
 neutral by default, and brandable via `window.__BRAND__` injection or
 `MCP_BRAND_*` env vars (`MCP_BRAND_NAME`, `MCP_BRAND_LOGO_URL`,
 `MCP_BRAND_PRIMARY_COLOR`, `MCP_BRAND_ACCENT_COLOR`, `MCP_BRAND_BG`,
 `MCP_BRAND_TEXT`) — no rebuild needed.
 
+### Verified against a live tenant
+
+Every read operation that needs no id beyond the organization, plus the named read tools. `action1_run_script`, `action1_stop_automation`, and endpoint-group create / rename / delete through `action1_api_write`. Not yet fired live: `action1_reboot_endpoints`, `action1_deploy_updates`, `action1_set_update_approval`.
+
+The client retries HTTP 429 using the `retry_after` Action1 returns, up to 60s in total for reads and 20s for writes.
+
+### Regenerating the catalogue
+
+`npm run gen:api` downloads Action1's API docs bundle and rewrites `src/generated/action1-api.ts`. Pass a local spec file to work offline: `node scripts/gen-api-catalogue.mjs spec.json`.
+
+API surface also maps to [PSAction1](https://github.com/Action1Corp/PSAction1) (Action1's MIT-licensed PowerShell module).
+
 ## Usage
 
 ### Claude Desktop (MCPB)
 
-Install via the MCPB bundle from the [latest release](https://github.com/WYRE-AI/action1-mcp/releases).
+The MCPB bundle on the [upstream releases page](https://github.com/WYRE-AI/action1-mcp/releases) is the read-only upstream build: it does **not** include the full-API catalogue or the write/admin tools in this fork. To get them in Claude Desktop, build a bundle from this repository with `npm ci && npm run build && npm run pack:mcpb`.
 
 Required credentials (created in Action1 → Settings → API Credentials, **non-recoverable on creation — copy immediately**):
 - API Key (Client ID)
@@ -45,13 +91,22 @@ Required credentials (created in Action1 → Settings → API Credentials, **non
 
 ### Stdio (direct)
 
+Build this fork, then run it:
+
 ```bash
+git clone https://github.com/nocrusltd/action1-mcp.git && cd action1-mcp
+npm ci --ignore-scripts && npm run build
+
 ACTION1_API_KEY=... \
 ACTION1_SECRET=... \
 ACTION1_REGION=NorthAmerica \
 ACTION1_DEFAULT_ORG_ID=org-... \
-npx -y github:WYRE-AI/action1-mcp
+ACTION1_ENABLE_WRITES=false \
+ACTION1_ENABLE_ADMIN=false \
+node dist/index.js
 ```
+
+`npx -y github:WYRE-AI/action1-mcp` runs the read-only upstream build, without these tools.
 
 ### HTTP
 

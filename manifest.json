@@ -21,6 +21,8 @@
         "ACTION1_SECRET": "${user_config.action1_secret}",
         "ACTION1_REGION": "${user_config.action1_region}",
         "ACTION1_DEFAULT_ORG_ID": "${user_config.action1_default_org_id}",
+        "ACTION1_ENABLE_WRITES": "${user_config.action1_enable_writes}",
+        "ACTION1_ENABLE_ADMIN": "${user_config.action1_enable_admin}",
         "MCP_TRANSPORT": "stdio"
       }
     }
@@ -55,6 +57,22 @@
       "description": "Optional. If set, tools that take an organization_id will use this when none is provided.",
       "sensitive": false,
       "required": false
+    },
+    "action1_enable_writes": {
+      "type": "boolean",
+      "title": "Enable write tools",
+      "description": "Allow tools that change endpoints and configuration: run scripts, reboot, deploy updates, approvals, groups, schedules. Off by default.",
+      "sensitive": false,
+      "required": false,
+      "default": false
+    },
+    "action1_enable_admin": {
+      "type": "boolean",
+      "title": "Enable admin operations",
+      "description": "Also allow users, roles, organizations, enterprise, subscription, advanced settings, data sources, agent deployment, deleting or moving endpoints, and remote sessions. Needs write tools enabled. Off by default.",
+      "sensitive": false,
+      "required": false,
+      "default": false
     }
   },
   "compatibility": { "platforms": ["darwin", "win32", "linux"], "runtimes": { "node": ">=20.0.0" }, "claude_desktop": ">=0.10.0" }

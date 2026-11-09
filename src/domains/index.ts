@@ -9,6 +9,7 @@ import type { DomainHandler, DomainName } from "../utils/types.js";
 
 const domainCache = new Map<DomainName, DomainHandler>();
 
+/** Load (once) and return the handler for a domain. */
 export async function getDomainHandler(domain: DomainName): Promise<DomainHandler> {
   const cached = domainCache.get(domain);
   if (cached) return cached;
@@ -35,6 +36,16 @@ export async function getDomainHandler(domain: DomainName): Promise<DomainHandle
       handler = updatesHandler;
       break;
     }
+    case "automations": {
+      const { automationsHandler } = await import("./automations.js");
+      handler = automationsHandler;
+      break;
+    }
+    case "api": {
+      const { apiHandler } = await import("./api.js");
+      handler = apiHandler;
+      break;
+    }
     default:
       throw new Error(`Unknown domain: ${domain satisfies never}`);
   }
@@ -43,10 +54,12 @@ export async function getDomainHandler(domain: DomainName): Promise<DomainHandle
   return handler;
 }
 
+/** All domain names, in listing order. */
 export function getAvailableDomains(): DomainName[] {
-  return ["organizations", "endpoints", "policies", "updates"];
+  return ["organizations", "endpoints", "policies", "updates", "automations", "api"];
 }
 
+/** Forget loaded handlers (used by tests). */
 export function clearDomainCache(): void {
   domainCache.clear();
 }

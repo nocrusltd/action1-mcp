@@ -45,6 +45,22 @@
           "format": "string"
         },
         {
+          "name": "ACTION1_ENABLE_WRITES",
+          "description": "Set to 'true' to enable every tool and API operation that changes endpoints or configuration, for example action1_run_script, action1_reboot_endpoints, action1_deploy_updates, action1_set_update_approval, action1_stop_automation and action1_api_write (groups, scripts, schedules, approvals, software repository, report definitions, CVE remediations). Off by default, so the server is read-only.",
+          "isRequired": false,
+          "default": "false",
+          "format": "string",
+          "choices": ["false", "true"]
+        },
+        {
+          "name": "ACTION1_ENABLE_ADMIN",
+          "description": "Set to 'true' (together with ACTION1_ENABLE_WRITES) to allow admin API operations: users, roles, organizations, enterprise, subscription, advanced settings, data sources, agent deployment, deleting or moving endpoints, remote sessions. Off by default.",
+          "isRequired": false,
+          "default": "false",
+          "format": "string",
+          "choices": ["false", "true"]
+        },
+        {
           "name": "MCP_TRANSPORT",
           "description": "Transport mode for the server. Set to 'stdio' for local CLI use; the image defaults to 'http' for gateway hosting.",
           "isRequired": false,
