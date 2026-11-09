@@ -94,6 +94,9 @@ export function tierDisabledReason(tier: ApiTier): string {
 
 const SCALAR = new Set(["string", "number", "boolean"]);
 
+/** Operations that start a run now and so must name at least one target. */
+const TARGET_REQUIRED = new Set(["policies_instances_orgId_post"]);
+
 /** Build the request path + query string, validating against the catalogue entry. */
 export function buildRequest(
   op: ApiOperation,
@@ -164,6 +167,13 @@ export async function callOperation(operationId: string, args: CallArgs = {}): P
   const op = (await getCatalogue()).get(operationId);
   if (!op) throw new Error(`Unknown Action1 operation "${operationId}". Use action1_list_api_operations.`);
   if (!tierEnabled(op.tier)) throw new Error(`${op.id} (${op.tier}): ${tierDisabledReason(op.tier)}`);
+  // Starting a run with no targets is refused, as the named run tools do.
+  if (TARGET_REQUIRED.has(op.id)) {
+    const endpoints = (args.body as { endpoints?: unknown } | undefined)?.endpoints;
+    if (!Array.isArray(endpoints) || endpoints.length === 0) {
+      throw new Error(`${op.id} needs a non-empty body.endpoints list of {id, type} targets`);
+    }
+  }
   if (targetsAllEndpoints(args.body) && args.confirm_all_endpoints !== true) {
     throw new Error(
       `${op.id} targets the "ALL" endpoint group, which is every endpoint in the organization. ` +

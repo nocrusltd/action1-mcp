@@ -272,9 +272,11 @@ async function getOp(id: string): Promise<ApiOperation> {
 }
 
 export const apiHandler: DomainHandler = {
+  /** Read tools always; write tools only when ACTION1_ENABLE_WRITES is on. */
   get tools() {
     return writesEnabled() ? [...readTools, ...writeTools] : readTools;
   },
+  /** Dispatch one api-domain tool call. */
   async handle(name, args) {
     if (WRITE_NAMES.has(name) && !writesEnabled()) throw new Error(WRITES_DISABLED_MESSAGE);
 

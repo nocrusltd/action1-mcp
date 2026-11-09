@@ -368,9 +368,11 @@ async function getResults(args: Record<string, unknown>) {
 }
 
 export const automationsHandler: DomainHandler = {
+  /** Read tool always; write tools only when ACTION1_ENABLE_WRITES is on. */
   get tools() {
     return writesEnabled() ? [...writeTools, ...readTools] : readTools;
   },
+  /** Dispatch one automations-domain tool call. */
   async handle(name, args) {
     if (name === "action1_get_automation_results") {
       const results = await getResults(args);

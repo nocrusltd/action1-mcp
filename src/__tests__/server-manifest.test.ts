@@ -37,6 +37,7 @@ const byName = (name: string): EnvVar | undefined => envVars.find((v) => v.name 
 
 const originalEnv = { ...process.env };
 
+/** Remove every ACTION1_* variable from the environment. */
 function resetActionEnv(): void {
   for (const key of Object.keys(process.env)) {
     if (key.startsWith("ACTION1_")) delete process.env[key];

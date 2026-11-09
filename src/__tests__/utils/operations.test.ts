@@ -8,6 +8,7 @@ import { buildRequest, callOperation, getCatalogue, tierEnabled, type ApiOperati
 import * as clientModule from "../../utils/client.js";
 
 const saved = { w: process.env.ACTION1_ENABLE_WRITES, a: process.env.ACTION1_ENABLE_ADMIN };
+/** Set or clear the write/admin gate env vars. */
 function env(writes?: string, admin?: string): void {
   if (writes === undefined) delete process.env.ACTION1_ENABLE_WRITES;
   else process.env.ACTION1_ENABLE_WRITES = writes;
@@ -210,6 +211,15 @@ describe("ALL-endpoints confirmation on generic calls", () => {
       expect(send).not.toHaveBeenCalled();
     },
   );
+
+  it.each([
+    ["missing", { name: "x", retry_minutes: "1", actions: [] }],
+    ["empty", { name: "x", retry_minutes: "1", endpoints: [], actions: [] }],
+    ["not an array", { name: "x", retry_minutes: "1", endpoints: "ALL", actions: [] }],
+  ])("refuses an instance with %s targets", async (_label, body) => {
+    await expect(callOperation("policies_instances_orgId_post", { body })).rejects.toThrow(/non-empty body.endpoints/);
+    expect(send).not.toHaveBeenCalled();
+  });
 
   it("sends when confirmed, or when targeting specific endpoints", async () => {
     await callOperation("policies_instances_orgId_post", { body: allBody, confirm_all_endpoints: true });

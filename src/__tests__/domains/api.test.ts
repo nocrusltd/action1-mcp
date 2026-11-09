@@ -4,6 +4,7 @@ import { Action1Client } from "../../sdk/action1-client.js";
 import * as clientModule from "../../utils/client.js";
 
 const saved = { w: process.env.ACTION1_ENABLE_WRITES, a: process.env.ACTION1_ENABLE_ADMIN };
+/** Set or clear the write/admin gate env vars. */
 function env(writes?: string, admin?: string): void {
   if (writes === undefined) delete process.env.ACTION1_ENABLE_WRITES;
   else process.env.ACTION1_ENABLE_WRITES = writes;

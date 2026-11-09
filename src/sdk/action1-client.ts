@@ -123,6 +123,7 @@ export class Action1Client {
     this.baseUrl = `https://${host}`;
   }
 
+  /** Return a valid access token, minting a new one when within a minute of expiry. */
   private async ensureToken(): Promise<string> {
     const now = Date.now();
     if (this.token && this.token.expiresAt > now + 60_000) {
@@ -229,6 +230,7 @@ export class Action1Client {
     return this.request("/api/3.0/organizations");
   }
 
+  /** List managed endpoints in an organization. */
   async listEndpoints(args: { orgId?: string; limit?: number }): Promise<unknown[]> {
     const orgId = args.orgId ?? this.opts.defaultOrgId;
     if (!orgId) throw new Error("organization_id is required (no defaultOrgId configured)");
@@ -238,6 +240,7 @@ export class Action1Client {
     return this.request(`/api/3.0/endpoints/managed/${encodeURIComponent(orgId)}${qs}`);
   }
 
+  /** Get one managed endpoint. */
   async getEndpoint(endpointId: string, args: { orgId?: string }): Promise<unknown> {
     const orgId = args.orgId ?? this.opts.defaultOrgId;
     if (!orgId) throw new Error("organization_id is required (no defaultOrgId configured)");
@@ -246,6 +249,7 @@ export class Action1Client {
     );
   }
 
+  /** List missing updates across an organization. */
   async listMissingUpdates(args: { orgId?: string; limit?: number }): Promise<unknown[]> {
     const orgId = args.orgId ?? this.opts.defaultOrgId;
     if (!orgId) throw new Error("organization_id is required (no defaultOrgId configured)");
@@ -255,6 +259,7 @@ export class Action1Client {
     return this.request(`/api/3.0/updates/${encodeURIComponent(orgId)}${qs}`);
   }
 
+  /** List automation instances (policies) in an organization. */
   async listPolicies(args: { orgId?: string }): Promise<unknown[]> {
     const orgId = args.orgId ?? this.opts.defaultOrgId;
     if (!orgId) throw new Error("organization_id is required (no defaultOrgId configured)");
@@ -280,6 +285,7 @@ export class Action1Client {
     });
   }
 
+  /** Get one automation instance's status. */
   async getAutomationInstance(instanceId: string, args: { orgId?: string }): Promise<AutomationInstance> {
     const orgId = this.requireOrg(args.orgId);
     return this.request(

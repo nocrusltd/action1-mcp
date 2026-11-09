@@ -8,6 +8,7 @@
 
 import { cleanCredential } from "./client.js";
 
+/** True when ACTION1_ENABLE_WRITES is "true" or "1". */
 export function writesEnabled(): boolean {
   const raw = cleanCredential(process.env.ACTION1_ENABLE_WRITES)?.toLowerCase();
   return raw === "true" || raw === "1";

@@ -5,6 +5,7 @@ import * as clientModule from "../../utils/client.js";
 const WRITE_TOOLS = ["action1_run_script", "action1_reboot_endpoints", "action1_deploy_updates"];
 const original = process.env.ACTION1_ENABLE_WRITES;
 
+/** Set or clear ACTION1_ENABLE_WRITES. */
 function setWrites(value: string | undefined): void {
   if (value === undefined) delete process.env.ACTION1_ENABLE_WRITES;
   else process.env.ACTION1_ENABLE_WRITES = value;

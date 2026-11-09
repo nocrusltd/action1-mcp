@@ -18,6 +18,7 @@ interface Captured {
 }
 let calls: Captured[] = [];
 
+/** Stub global fetch, capturing method, URL, body and content type of each request. */
 function stubFetch(responseBody: unknown = { items: [] }): void {
   calls = [];
   globalThis.fetch = vi.fn(async (input: string | URL, init?: RequestInit) => {
@@ -97,6 +98,7 @@ describe("Action1Client rate-limit handling", () => {
     vi.useRealTimers();
   });
 
+  /** Stub fetch to answer `count` 429s (with retry_after) before succeeding. */
   function stubWith429s(count: number, retryAfter = 1): { resourceCalls: () => number } {
     let n = 0;
     globalThis.fetch = vi.fn(async (input: string | URL) => {

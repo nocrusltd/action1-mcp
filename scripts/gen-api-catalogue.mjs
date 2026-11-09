@@ -22,6 +22,7 @@ const OUT = new URL("../src/generated/action1-api.ts", import.meta.url);
 const DOCS = "https://app.action1.com/apidocs/";
 const METHODS = ["get", "post", "patch", "put", "delete"];
 
+/** Load the spec from a local JSON file (argv[2]) or from Action1's docs bundle. */
 async function loadSpec() {
   const local = process.argv[2];
   if (local) return JSON.parse(fs.readFileSync(local, "utf8"));
@@ -51,6 +52,7 @@ const ADMIN_PREFIXES = [
   "/endpoints/deployers", "/endpoints/deployer-installation",
 ];
 
+/** Risk tier for one operation. The single place tiers are decided. */
 function tierFor(method, path, id) {
   if (BLOCKED.has(id)) return "blocked";
   if (method === "get") return "read";
@@ -60,6 +62,7 @@ function tierFor(method, path, id) {
   return "write";
 }
 
+/** First paragraph of an operation description, without the permission line. */
 function firstPara(text = "") {
   return text
     .replace(/\*\*Requires[^*]*\*\*\s*/g, "")
@@ -70,6 +73,7 @@ function firstPara(text = "") {
     .slice(0, 400) ?? "";
 }
 
+/** Resolve a $ref'd parameter to its definition. */
 function resolveParam(spec, p) {
   if (p.$ref) return spec.components.parameters[p.$ref.split("/").pop()];
   return p;
