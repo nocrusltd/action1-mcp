@@ -13,6 +13,7 @@
  * Credentials (stdio mode):
  *   ACTION1_API_KEY, ACTION1_SECRET, ACTION1_REGION (default NorthAmerica),
  *   ACTION1_DEFAULT_ORG_ID (optional)
+ *   ACTION1_ENABLE_WRITES=true (optional) — enables run-script / reboot / deploy-update tools
  *
  * Credentials (gateway mode, AUTH_MODE=gateway): from request headers
  *   X-Action1-API-Key, X-Action1-Secret, X-Action1-Region, X-Action1-Default-Org-Id
@@ -58,7 +59,8 @@ const navigateTool: Tool = {
         enum: getAvailableDomains(),
         description:
           "endpoints (device inventory), organizations (multi-tenant MSP), " +
-          "policies (automation visibility), updates (missing patches).",
+          "policies (automation visibility), updates (missing patches), " +
+          "automations (run scripts, reboot, deploy updates, read results).",
       },
     },
     required: ["domain"],

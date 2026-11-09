@@ -45,6 +45,14 @@
           "format": "string"
         },
         {
+          "name": "ACTION1_ENABLE_WRITES",
+          "description": "Set to 'true' to enable tools that change endpoints: action1_run_script, action1_reboot_endpoints and action1_deploy_updates. Off by default, so the server is read-only.",
+          "isRequired": false,
+          "default": "false",
+          "format": "string",
+          "choices": ["false", "true"]
+        },
+        {
           "name": "MCP_TRANSPORT",
           "description": "Transport mode for the server. Set to 'stdio' for local CLI use; the image defaults to 'http' for gateway hosting.",
           "isRequired": false,

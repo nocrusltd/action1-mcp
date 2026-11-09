@@ -28,6 +28,14 @@
  *   GET /api/3.0/updates/<org>                    — missing updates
  *   GET /api/3.0/policies/instances/<org>         — automations / policies
  *
+ * Write surface (opt-in, see src/utils/writes.ts). Each path below was
+ * exercised against a live EU tenant on 2026-11-09:
+ *   POST /api/3.0/policies/instances/<org>                      — start a one-off automation (run now)
+ *   GET  /api/3.0/policies/instances/<org>/<instance>           — instance status
+ *   GET  /api/3.0/policies/instances/<org>/<instance>/endpoint_results
+ *   GET  /api/3.0/automations/instances/<org>/<instance>/endpoint-results/<eid>/details
+ * The last one only exists under the /automations/ spelling with a hyphen.
+ *
  * NOTE on the last one: Action1 renamed this resource. The current OpenAPI
  * reference documents it as /api/3.0/automations/instances/<org>, though its
  * operationId is still literally `policies_instances_orgId_get`. The vendor's
@@ -55,6 +63,23 @@ const REGION_HOSTS = {
 } as const;
 
 export type Action1Region = keyof typeof REGION_HOSTS;
+
+const MAX_RATE_LIMIT_RETRIES = 4;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Wait time for a 429: Action1's details.retry_after, then Retry-After, else 1s. Capped at 30s. */
+async function retryAfterMs(res: Response): Promise<number> {
+  let seconds = Number(res.headers.get("Retry-After"));
+  try {
+    const body = (await res.json()) as { details?: { retry_after?: number } };
+    if (typeof body?.details?.retry_after === "number") seconds = body.details.retry_after;
+  } catch {
+    // Non-JSON body; fall back to the header.
+  }
+  if (!Number.isFinite(seconds) || seconds <= 0) seconds = 1;
+  return Math.min(seconds, 30) * 1000;
+}
 
 /** Shorthand accepted by the vendor's own Set-Action1Region ValidateSet. */
 const REGION_ALIASES: Record<string, Action1Region> = {
@@ -128,16 +153,30 @@ export class Action1Client {
     return this.token.accessToken;
   }
 
+  private requireOrg(orgId: string | undefined): string {
+    const resolved = orgId ?? this.opts.defaultOrgId;
+    if (!resolved) throw new Error("organization_id is required (no defaultOrgId configured)");
+    return resolved;
+  }
+
   private async request<T>(path: string, init: RequestInit = {}): Promise<T> {
-    const token = await this.ensureToken();
-    const res = await fetch(`${this.baseUrl}${path}`, {
-      ...init,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/json",
-        ...(init.headers ?? {}),
-      },
-    });
+    let res: Response;
+    for (let attempt = 0; ; attempt++) {
+      const token = await this.ensureToken();
+      res = await fetch(`${this.baseUrl}${path}`, {
+        ...init,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+          ...(init.headers ?? {}),
+        },
+      });
+      // Action1 rate-limits bursts with 429 and says how long to wait in
+      // details.retry_after (seconds). Back off and retry a few times. POSTs are
+      // safe to retry here because a 429 means the request was not processed.
+      if (res.status !== 429 || attempt >= MAX_RATE_LIMIT_RETRIES) break;
+      await sleep(await retryAfterMs(res));
+    }
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       throw new Error(`Action1 ${init.method ?? "GET"} ${path} failed: ${res.status} ${text}`);
@@ -182,4 +221,106 @@ export class Action1Client {
     if (!orgId) throw new Error("organization_id is required (no defaultOrgId configured)");
     return this.request(`/api/3.0/policies/instances/${encodeURIComponent(orgId)}`);
   }
+
+  // --- write surface (opt-in) ---
+
+  /**
+   * Start a one-off ("run now") automation instance. The body is the
+   * AutomationInstance payload from the Action1 OpenAPI reference:
+   * { name, retry_minutes, endpoints: [{id, type}], actions: [{name, template_id, params}] }.
+   */
+  async createAutomationInstance(
+    args: { orgId?: string },
+    body: AutomationInstancePayload,
+  ): Promise<AutomationInstance> {
+    const orgId = this.requireOrg(args.orgId);
+    return this.request(`/api/3.0/policies/instances/${encodeURIComponent(orgId)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+
+  async getAutomationInstance(instanceId: string, args: { orgId?: string }): Promise<AutomationInstance> {
+    const orgId = this.requireOrg(args.orgId);
+    return this.request(
+      `/api/3.0/policies/instances/${encodeURIComponent(orgId)}/${encodeURIComponent(instanceId)}`,
+    );
+  }
+
+  async listAutomationEndpointResults(
+    instanceId: string,
+    args: { orgId?: string; limit?: number },
+  ): Promise<ResultPage<AutomationEndpointResult>> {
+    const orgId = this.requireOrg(args.orgId);
+    const qs = args.limit ? `?limit=${args.limit}` : "";
+    return this.request(
+      `/api/3.0/policies/instances/${encodeURIComponent(orgId)}/${encodeURIComponent(instanceId)}/endpoint_results${qs}`,
+    );
+  }
+
+  async getAutomationEndpointDetails(
+    instanceId: string,
+    endpointId: string,
+    args: { orgId?: string },
+  ): Promise<ResultPage<AutomationEndpointDetail>> {
+    const orgId = this.requireOrg(args.orgId);
+    return this.request(
+      `/api/3.0/automations/instances/${encodeURIComponent(orgId)}/${encodeURIComponent(instanceId)}` +
+        `/endpoint-results/${encodeURIComponent(endpointId)}/details`,
+    );
+  }
+}
+
+export interface ResultPage<T> {
+  items: T[];
+  total_items?: string;
+  next_page?: string;
+}
+
+export interface AutomationTarget {
+  id: string;
+  type: "Endpoint" | "EndpointGroup";
+}
+
+export interface AutomationAction {
+  name: string;
+  template_id: "run_script" | "reboot" | "deploy_update";
+  params: Record<string, unknown>;
+}
+
+export interface AutomationInstancePayload {
+  name: string;
+  retry_minutes: string;
+  endpoints: AutomationTarget[];
+  actions: AutomationAction[];
+}
+
+export interface AutomationInstance {
+  id: string;
+  name?: string;
+  status?: string;
+  percent_completed?: string;
+  start_time?: string;
+  endpoints?: AutomationTarget[];
+  [key: string]: unknown;
+}
+
+/** One row per targeted endpoint. `id` is the endpoint id. */
+export interface AutomationEndpointResult {
+  id: string;
+  endpoint_name?: string;
+  status?: string;
+  percent_completed?: string;
+  description?: string;
+  time?: string;
+}
+
+/** Step log for one endpoint. Script stdout lands in `description`. */
+export interface AutomationEndpointDetail {
+  id: string;
+  time?: string;
+  status?: string;
+  action_name?: string;
+  description?: string;
 }

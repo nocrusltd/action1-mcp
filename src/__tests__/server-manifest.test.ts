@@ -44,12 +44,13 @@ function resetActionEnv(): void {
 }
 
 describe("server.json credential env vars", () => {
-  it("advertises exactly the four ACTION1_* vars the runtime reads", () => {
+  it("advertises exactly the ACTION1_* vars the runtime reads", () => {
     const declared = envVars.map((v) => v.name).filter((n) => n.startsWith("ACTION1_"));
 
     expect(declared.sort()).toEqual([
       "ACTION1_API_KEY",
       "ACTION1_DEFAULT_ORG_ID",
+      "ACTION1_ENABLE_WRITES",
       "ACTION1_REGION",
       "ACTION1_SECRET",
     ]);
@@ -77,6 +78,11 @@ describe("server.json credential env vars", () => {
   it("marks region and default org optional, matching the runtime fallbacks", () => {
     expect(byName("ACTION1_REGION")?.isRequired).toBeFalsy();
     expect(byName("ACTION1_DEFAULT_ORG_ID")?.isRequired).toBeFalsy();
+  });
+
+  it("keeps write tools opt-in: ACTION1_ENABLE_WRITES is optional and defaults to false", () => {
+    expect(byName("ACTION1_ENABLE_WRITES")?.isRequired).toBeFalsy();
+    expect(byName("ACTION1_ENABLE_WRITES")?.default).toBe("false");
   });
 
   it("offers the four real regions, defaulting to NorthAmerica", () => {
