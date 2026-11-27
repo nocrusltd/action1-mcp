@@ -1,0 +1,31 @@
+name: Secret scan (gitleaks)
+
+# Calls the organisation's shared secret-scan workflow in the public
+# nocrusltd/shared-workflows repository, pinned to a full commit SHA. To take a
+# newer version, change the SHA in a reviewed pull request.
+#
+# pull_request, not pull_request_target: this is a public repository, and
+# GitHub blocks pull_request_target by default in public repositories from
+# 2026-12-02 unless an Actions event policy allows it. Under pull_request a
+# fork's pull request runs with a read-only token and no secrets, which is all
+# the scan needs. The pull request's own copy of this file runs, so review any
+# change to it; the push scan on the default branch always runs that branch's
+# copy.
+
+on:
+  pull_request:
+    # 'edited' as well as the defaults: changing a pull request's base branch
+    # is an 'edited' event, and without it a retargeted pull request would keep
+    # a result computed against its old base.
+    types: [opened, synchronize, reopened, edited]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  gitleaks:
+    uses: nocrusltd/shared-workflows/.github/workflows/gitleaks-reusable.yml@6a13cbb1c528cc5f30792dce2d1eaebd89cb828c
+    with:
+      runs-on: ubuntu-latest
